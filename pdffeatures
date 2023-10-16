@@ -1,0 +1,66 @@
+import requests
+import os
+
+# Replace with your ILOVEPDF API keys
+API_KEY = 'secret_key_cc53b7de25659e4668819444e297f5cc_GoF4i0f09727b54fb7ac9212a6aa3feb7dcad'
+
+# Base URL for ILOVEPDF API
+BASE_URL = 'https://api.ilovepdf.com/v1'
+
+# Function to upload a file to ILOVEPDF
+def upload_file(filename):
+    upload_url = f'{BASE_URL}/upload?public_key={API_KEY}'
+    files = {'file': (os.path.basename(filename), open(filename, 'rb'))}
+    response = requests.post(upload_url, files=files)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        raise Exception(f"Failed to upload the file: {response.status_code} - {response.text}")
+
+# Function to process PDF files
+def process_pdf(task, input_files, output_dir):
+    task_url = f'{BASE_URL}/{task}?public_key={API_KEY}'
+    
+    # Upload input files
+    input_files_data = []
+    for input_file in input_files:
+        input_data = upload_file(input_file)
+        input_files_data.append(input_data['server_filename'])
+    
+    # Specify the input files for the task
+    payload = {'files': input_files_data}
+    
+    # Execute the task
+    response = requests.post(task_url, json=payload)
+    if response.status_code == 200:
+        task_data = response.json()
+        download_url = task_data['output']
+        # Download the result files
+        for idx, file_url in enumerate(download_url):
+            response = requests.get(file_url)
+            output_file = os.path.join(output_dir, f'result_{idx + 1}.pdf')
+            with open(output_file, 'wb') as f:
+                f.write(response.content)
+        return True
+    else:
+        raise Exception(f"Failed to execute the task: {response.status_code} - {response.text}")
+
+# Main function
+if __name__ == "__main__":
+    # Input PDF files
+    input_files = ['https://vtu.ac.in/wp-content/uploads/2023/10/3456.pdf', 'https://vtu.ac.in/wp-content/uploads/2023/10/3428-Notification.pdf']
+    
+    # Output directory
+    output_dir = 'output'
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    
+    # Task options: 'merge', 'split', 'unlock', 'extract', 'imagepdf'
+    task = 'merge'  # Change this to the desired task
+    
+    try:
+        success = process_pdf(task, input_files, output_dir)
+        if success:
+            print(f"Task '{task}' completed successfully. Check the '{output_dir}' folder for results.")
+    except Exception as e:
+        print(f"Error: {e}")
